@@ -9,6 +9,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -41,7 +42,7 @@ class ForebtScraper:
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
         })
-        self.driver = None
+        self.driver: Optional[WebDriver] = None
     
     def __enter__(self):
         """Context manager enter."""
@@ -149,6 +150,9 @@ class ForebtScraper:
     def _fetch_with_selenium(self, url: str, sport: Sport) -> List[Dict[str, Any]]:
         """Pobiera zdarzenia używając Selenium (dynamiczny JS)."""
         self._init_driver()
+        
+        if not self.driver:
+            raise RuntimeError("WebDriver nie został zainicjalizowany")
         
         self.driver.get(url)
         

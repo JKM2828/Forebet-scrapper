@@ -1,6 +1,7 @@
 """
 Analyzer H2H (Head-to-Head) - analiza bezpośrednich spotkań drużyn.
 """
+import re
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
@@ -105,7 +106,7 @@ class HeadToHeadAnalyzer:
             soup = BeautifulSoup(response.content, 'lxml')
             
             # Znajdź sekcję H2H (przykładowe selektory - trzeba dostosować do rzeczywistej struktury)
-            h2h_section = soup.find('div', class_=lambda x: x and 'h2h' in x.lower())
+            h2h_section = soup.find('div', class_=re.compile(r'h2h', re.IGNORECASE))
             
             if not h2h_section:
                 logger.debug("Nie znaleziono sekcji H2H na stronie")
@@ -114,7 +115,7 @@ class HeadToHeadAnalyzer:
             matches = []
             
             # Parsuj mecze (trzeba dostosować do struktury Forebet)
-            match_rows = h2h_section.find_all('tr', class_=lambda x: x and 'match' in str(x).lower())
+            match_rows = h2h_section.find_all('tr', class_=re.compile(r'match', re.IGNORECASE))
             
             for row in match_rows[:Settings.H2H_MATCHES_TO_ANALYZE]:
                 try:

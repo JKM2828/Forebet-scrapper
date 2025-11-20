@@ -23,7 +23,7 @@ class SecretsManager:
             print("⚠️  Używam zmiennych środowiskowych systemowych.")
     
     @staticmethod
-    def get(key: str, default: Optional[str] = None, required: bool = False) -> Optional[str]:
+    def get(key: str, default: Optional[str] = None, required: bool = False) -> str:
         """
         Pobiera wartość zmiennej środowiskowej.
         
@@ -33,7 +33,7 @@ class SecretsManager:
             required: Czy zmienna jest wymagana (rzuca wyjątek jeśli brak)
         
         Returns:
-            Wartość zmiennej lub default
+            Wartość zmiennej lub default (zawsze string)
         
         Raises:
             ValueError: Jeśli zmienna wymagana nie istnieje
@@ -46,15 +46,15 @@ class SecretsManager:
                 f"Sprawdź plik .env lub zmienne środowiskowe systemu."
             )
         
-        return value
+        return value or default or ""
     
     @staticmethod
-    def get_int(key: str, default: Optional[int] = None, required: bool = False) -> Optional[int]:
+    def get_int(key: str, default: int = 0, required: bool = False) -> int:
         """Pobiera wartość zmiennej jako integer."""
-        value = SecretsManager.get(key, str(default) if default is not None else None, required)
+        value = SecretsManager.get(key, str(default), required)
         
-        if value is None:
-            return None
+        if not value:
+            return default
         
         try:
             return int(value)
@@ -62,12 +62,12 @@ class SecretsManager:
             raise ValueError(f"Zmienna '{key}' musi być liczbą całkowitą, otrzymano: {value}")
     
     @staticmethod
-    def get_bool(key: str, default: Optional[bool] = None, required: bool = False) -> Optional[bool]:
+    def get_bool(key: str, default: bool = False, required: bool = False) -> bool:
         """Pobiera wartość zmiennej jako boolean."""
-        value = SecretsManager.get(key, str(default) if default is not None else None, required)
+        value = SecretsManager.get(key, str(default), required)
         
-        if value is None:
-            return None
+        if not value:
+            return default
         
         return value.lower() in ("true", "1", "yes", "on")
     
