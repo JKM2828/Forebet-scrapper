@@ -177,25 +177,56 @@ class ForebtScraper:
         """
         events = []
         
-        # Znajdź wszystkie wiersze z meczami
-        # Forebet używa różnych selektorów w zależności od sportu
+        # Próbuj różne selektory CSS (Forebet zmienia strukturę)
+        match_rows = []
+        
+        # Metoda 1: data-tid attribute
         match_rows = soup.find_all('tr', attrs={'data-tid': True})
+        if match_rows:
+            logger.debug(f"Znaleziono {len(match_rows)} meczów (data-tid)")
+        
+        # Metoda 2: klasa rcnt
+        if not match_rows:
+            match_rows = soup.find_all('div', class_='rcnt')
+            if match_rows:
+                logger.debug(f"Znaleziono {len(match_rows)} meczów (rcnt)")
+        
+        # Metoda 3: tabela z prognozami
+        if not match_rows:
+            match_rows = soup.select('table.table tr')
+            if match_rows:
+                logger.debug(f"Znaleziono {len(match_rows)} wierszy tabeli")
+        
+        # Metoda 4: ogólne wiersze z meczami
+        if not match_rows:
+            match_rows = soup.select('div[class*="match"], tr[class*="match"]')
+            if match_rows:
+                logger.debug(f"Znaleziono {len(match_rows)} elementów match")
         
         if not match_rows:
-            # Alternatywny selektor
-            match_rows = soup.find_all('div', class_='rcnt')
+            logger.warning(f"⚠️  Brak elementów meczów w HTML dla {sport.value}")
+            # Zapisz HTML do debugowania
+            debug_file = Settings.LOGS_DIR / f"forebet_html_{sport.value}.html"
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(str(soup.prettify()))
+            logger.info(f"📝 HTML zapisany do: {debug_file}")
+            return []
         
-        logger.debug(f"Znaleziono {len(match_rows)} wierszy do parsowania")
+        logger.debug(f"Parsowanie {len(match_rows)} wierszy...")
         
-        for row in match_rows:
+        for i, row in enumerate(match_rows, 1):
             try:
                 event_data = self._parse_single_event(row, sport)
                 if event_data:
                     events.append(event_data)
+                    logger.debug(f"  [{i}/{len(match_rows)}] ✅ {event_data.get('home_team')} vs {event_data.get('away_team')}")
+                else:
+                    logger.debug(f"  [{i}/{len(match_rows)}] ❌ Pomięto (brak danych)")
             except Exception as e:
-                logger.debug(f"Błąd parsowania wiersza: {e}")
+                logger.debug(f"  [{i}/{len(match_rows)}] ❌ Błąd: {e}")
                 continue
         
+        logger.info(f"✅ Poprawnie sparsowano {len(events)} zdarzeń z {len(match_rows)} wierszy")
         return events
     
     def _parse_single_event(self, element, sport: Sport) -> Optional[Dict[str, Any]]:
@@ -251,34 +282,40 @@ class ForebtScraper:
     def _extract_teams(self, element) -> Optional[Dict[str, str]]:
         """Ekstraktuje nazwy drużyn."""
         try:
-            # Metoda 1: Szukaj span z klasą "homeTeam" i "awayTeam"
-            home_team_elem = element.find('span', class_=re.compile(r'.*homeTeam.*|.*tnl.*|.*home.*', re.I))
-            away_team_elem = element.find('span', class_=re.compile(r'.*awayTeam.*|.*tnl.*|.*away.*', re.I))
-            
-            if home_team_elem and away_team_elem:
-                return {
-                    'home': home_team_elem.get_text(strip=True),
-                    'away': away_team_elem.get_text(strip=True)
-                }
-            
-            # Metoda 2: Szukaj <a> z klasą team
-            team_links = element.find_all('a', class_=re.compile(r'.*team.*', re.I))
+            # Metoda 1: Linki do drużyn
+            team_links = element.find_all('a', href=re.compile(r'.*/team/.*'))
             if len(team_links) >= 2:
-                return {
-                    'home': team_links[0].get_text(strip=True),
-                    'away': team_links[1].get_text(strip=True)
-                }
+                home = team_links[0].get_text(strip=True)
+                away = team_links[1].get_text(strip=True)
+                if home and away:
+                    return {'home': home, 'away': away}
             
-            # Metoda 3: Szukaj po kolejności <span>
-            all_spans = element.find_all('span')
-            if len(all_spans) >= 2:
-                # Filtruj tylko te z tekstem
-                text_spans = [s for s in all_spans if s.get_text(strip=True)]
-                if len(text_spans) >= 2:
+            # Metoda 2: Span z klasami team
+            team_spans = element.find_all('span', class_=re.compile(r'.*team.*', re.I))
+            if len(team_spans) >= 2:
+                home = team_spans[0].get_text(strip=True)
+                away = team_spans[1].get_text(strip=True)
+                if home and away:
+                    return {'home': home, 'away': away}
+            
+            # Metoda 3: Wszystkie linki w elemencie
+            all_links = element.find_all('a')
+            if len(all_links) >= 2:
+                # Filtruj tylko linki z tekstem (nie ikony)
+                text_links = [a for a in all_links if len(a.get_text(strip=True)) > 2]
+                if len(text_links) >= 2:
                     return {
-                        'home': text_spans[0].get_text(strip=True),
-                        'away': text_spans[1].get_text(strip=True)
+                        'home': text_links[0].get_text(strip=True),
+                        'away': text_links[1].get_text(strip=True)
                     }
+            
+            # Metoda 4: Szukaj po title/alt attributes
+            imgs = element.find_all('img', alt=True)
+            if len(imgs) >= 2:
+                home = imgs[0].get('alt', '').strip()
+                away = imgs[1].get('alt', '').strip()
+                if home and away:
+                    return {'home': home, 'away': away}
             
             return None
             
@@ -286,40 +323,64 @@ class ForebtScraper:
             logger.debug(f"Błąd ekstraktowania drużyn: {e}")
             return None
     
-    def _extract_probabilities(self, element) -> Optional[Dict[str, float]]:
+    def _extract_probabilities(self, element) -> Optional[Dict[str, Any]]:
         """
         Ekstraktuje prawdopodobieństwa (1/X/2).
         
-        Forebet format: <div class="fprc"><span class="fpr">40</span><span>38</span><span>22</span></div>
+        Forebet format: <div class="fprc"><span>40</span><span>38</span><span>22</span></div>
         """
         try:
-            # Szukaj div z klasą "fprc" (forecast probability)
-            prob_container = element.find('div', class_=re.compile(r'.*fprc.*|.*prob.*', re.I))
+            # Metoda 1: Szukaj div z prob/fprc
+            prob_container = element.find('div', class_=re.compile(r'.*(prob|fprc|forecast).*', re.I))
             
-            if not prob_container:
-                return None
-            
-            # Pobierz wszystkie spany z liczbami
-            prob_spans = prob_container.find_all('span')
-            
-            if len(prob_spans) >= 3:
-                try:
-                    home_prob = float(prob_spans[0].get_text(strip=True))
-                    draw_prob = float(prob_spans[1].get_text(strip=True))
-                    away_prob = float(prob_spans[2].get_text(strip=True))
+            if prob_container:
+                # Znajdź wszystkie spany z liczbami
+                prob_spans = prob_container.find_all('span')
+                
+                # Filtruj tylko spany z liczbami
+                numbers = []
+                for span in prob_spans:
+                    text = span.get_text(strip=True)
+                    if text.isdigit():
+                        numbers.append(float(text))
+                
+                if len(numbers) >= 3:
+                    home_prob, draw_prob, away_prob = float(numbers[0]), float(numbers[1]), float(numbers[2])
+                    max_prob = max(home_prob, draw_prob, away_prob)
+                    prediction = 'home' if home_prob == max_prob else ('draw' if draw_prob == max_prob else 'away')
                     
                     return {
                         'home': home_prob,
                         'draw': draw_prob,
                         'away': away_prob,
-                        'max': max(home_prob, draw_prob, away_prob),
-                        'prediction': 'home' if home_prob == max(home_prob, draw_prob, away_prob) 
-                                     else ('draw' if draw_prob == max(home_prob, draw_prob, away_prob) 
-                                          else 'away')
+                        'max': max_prob,
+                        'prediction': prediction
                     }
-                except (ValueError, IndexError) as e:
-                    logger.debug(f"Błąd konwersji prawdopodobieństw: {e}")
-                    return None
+            
+            # Metoda 2: Szukaj bezpośrednio w całym elemencie
+            all_spans = element.find_all('span')
+            numbers = []
+            for span in all_spans:
+                text = span.get_text(strip=True)
+                # Liczby 0-100 (prawdopodobieństwa w %)
+                if text.isdigit() and 0 <= int(text) <= 100:
+                    numbers.append(float(text))
+            
+            # Jeśli znaleźliśmy dokładnie 3 liczby blisko siebie
+            if len(numbers) >= 3:
+                # Sprawdź czy suma ≈ 100 (tolerancja ±10)
+                if 90 <= sum(numbers[:3]) <= 110:
+                    home_prob, draw_prob, away_prob = float(numbers[0]), float(numbers[1]), float(numbers[2])
+                    max_prob = max(home_prob, draw_prob, away_prob)
+                    prediction = 'home' if home_prob == max_prob else ('draw' if draw_prob == max_prob else 'away')
+                    
+                    return {
+                        'home': home_prob,
+                        'draw': draw_prob,
+                        'away': away_prob,
+                        'max': max_prob,
+                        'prediction': prediction
+                    }
             
             return None
             

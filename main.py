@@ -4,8 +4,11 @@ Automatyczne monitorowanie zdarzeń sportowych z Forebet.
 """
 import sys
 import time
+import smtplib
 from datetime import datetime
 from typing import List, Dict, Any
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from src.config import Settings, Sport, secrets
 from src.data_management import get_logger, Logger, cache_manager
@@ -146,10 +149,10 @@ def analyze_and_qualify_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
     
     for i, event in enumerate(events, 1):
         try:
-            home_team = event.get('home_team')
-            away_team = event.get('away_team')
-            match_url = event.get('match_url')
-            match_id = event.get('match_id')
+            home_team = event.get('home_team', '')
+            away_team = event.get('away_team', '')
+            match_url = event.get('match_url', '')
+            match_id = event.get('match_id', '')
             
             logger.info(f"[{i}/{len(events)}] Analiza: {home_team} vs {away_team}")
             
