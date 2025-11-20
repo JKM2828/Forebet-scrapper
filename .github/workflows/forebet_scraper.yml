@@ -1,0 +1,59 @@
+name: Forebet Scraper Daily Run
+
+on:
+  schedule:
+    # Codziennie o 2:00 UTC
+    - cron: '0 2 * * *'
+  
+  # Pozwala na ręczne uruchomienie
+  workflow_dispatch:
+
+jobs:
+  scrape-and-notify:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Install Chrome and ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+          sudo ln -s /usr/lib/chromium-browser/chromedriver /usr/local/bin/chromedriver
+      
+      - name: Run Forebet Scraper
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          NOTIFICATION_THRESHOLD: 60
+          HEADLESS_BROWSER: true
+        run: python main.py
+      
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scraper-logs
+          path: logs/
+          retention-days: 30
+      
+      - name: Upload logs (on success)
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scraper-logs-success
+          path: logs/
+          retention-days: 7

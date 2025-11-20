@@ -1,0 +1,45 @@
+# Environment
+.env
+.env.local
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Cache & Logs
+cache/
+logs/
+*.log
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+.hypothesis/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Selenium
+*.png
+screenshots/
+chromedriver.exe
+geckodriver.exe
