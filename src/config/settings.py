@@ -28,7 +28,7 @@ class Settings:
     LOGS_DIR = BASE_DIR / "logs"
     CACHE_DIR = BASE_DIR / "cache"
     
-    # Forebet Configuration
+    # Forebet Configuration (używamy /pl bo Chrome automatycznie przekierowuje)
     FOREBET_BASE_URL = "https://www.forebet.com/pl"
     FOREBET_TIMEOUT = 30
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -74,7 +74,7 @@ class Settings:
     
     # URL patterns dla sportów (używamy angielskich URL - działają lepiej)
     SPORT_URL_PATTERNS = {
-        Sport.FOOTBALL: "prognozy-piłkarskie-na-dziś",  # Polski URL dla football
+        Sport.FOOTBALL: "pl/prognozy-piłkarskie-na-dziś",  # Polski URL dla football
         Sport.BASKETBALL: "en/basketball/predictions-today",
         Sport.VOLLEYBALL: "en/volleyball/predictions-today",
         Sport.HOCKEY: "en/hockey/predictions-today",

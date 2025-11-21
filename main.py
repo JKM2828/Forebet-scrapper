@@ -73,7 +73,7 @@ def main():
                     all_events.extend(filtered_events)
                     
                 except Exception as e:
-                    logger.error(f"❌ Błąd przetwarzania {sport.value}: {e}")
+                    logger.error(f"❌ Błąd przetwarzania {sport.value}: {e}", exc_info=True)
                     continue
         
         if not all_events:
