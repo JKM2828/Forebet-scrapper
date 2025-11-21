@@ -452,6 +452,139 @@ class ForebtScraper:
             return match.group(1)
         
         return None
+    
+    def fetch_team_form(self, match_url: Optional[str]) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Pobiera formę drużyn z detali meczu na Forebet.
+        
+        Args:
+            match_url: URL do szczegółów meczu
+        
+        Returns:
+            Słownik z formą obu drużyn {'home_form': [...], 'away_form': [...]}
+        """
+        if not match_url:
+            return {'home_form': [], 'away_form': []}
+        
+        try:
+            logger.debug(f"Pobieranie formy z: {match_url}")
+            
+            # Użyj Selenium jeśli dostępny
+            if self.use_selenium and self.driver:
+                self.driver.get(match_url)
+                time.sleep(2)  # Poczekaj na JS
+                soup = BeautifulSoup(self.driver.page_source, 'lxml')
+            else:
+                response = self.session.get(match_url, timeout=Settings.FOREBET_TIMEOUT)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'lxml')
+            
+            # Szukaj sekcji z ostatnimi meczami (form)
+            # Forebet często ma tabele z klasą "table_match_info" lub "form"
+            form_sections = soup.find_all('div', class_=re.compile(r'.*(form|last.*match).*', re.I))
+            
+            home_matches = []
+            away_matches = []
+            
+            # Parsuj form dla każdej drużyny
+            for section in form_sections:
+                matches = self._parse_form_section(section)
+                
+                # Pierwsza sekcja = gospodarze, druga = goście
+                if not home_matches:
+                    home_matches = matches
+                elif not away_matches:
+                    away_matches = matches
+                    break
+            
+            # Jeśli nie znaleziono w sekcjach, szukaj tabel z wynikami
+            if not home_matches or not away_matches:
+                result_tables = soup.find_all('table', class_=re.compile(r'.*(result|form).*', re.I))
+                
+                if len(result_tables) >= 2:
+                    home_matches = self._parse_results_table(result_tables[0])
+                    away_matches = self._parse_results_table(result_tables[1])
+            
+            logger.debug(f"Forma: gospodarze={len(home_matches)} meczów, goście={len(away_matches)} meczów")
+            
+            return {
+                'home_form': home_matches[:6],  # Ostatnie 6 meczów
+                'away_form': away_matches[:6]
+            }
+            
+        except Exception as e:
+            logger.warning(f"Błąd pobierania formy: {e}")
+            return {'home_form': [], 'away_form': []}
+    
+    def _parse_form_section(self, section) -> List[Dict[str, Any]]:
+        """Parsuje sekcję z formą drużyny."""
+        matches = []
+        
+        try:
+            # Szukaj wyników (W/D/L) w spanach lub divach
+            result_elements = section.find_all(['span', 'div'], class_=re.compile(r'.*(result|form_w|form_d|form_l).*', re.I))
+            
+            for elem in result_elements:
+                text = elem.get_text(strip=True).upper()
+                result = None
+                
+                if 'W' in text or elem.get('class', [''])[0].endswith('_w'):
+                    result = 'W'
+                elif 'D' in text or elem.get('class', [''])[0].endswith('_d'):
+                    result = 'D'
+                elif 'L' in text or elem.get('class', [''])[0].endswith('_l'):
+                    result = 'L'
+                
+                if result:
+                    matches.append({'result': result})
+            
+            # Jeśli nie znaleziono, szukaj liter W/D/L w tekście
+            if not matches:
+                text = section.get_text()
+                for char in text:
+                    if char in ['W', 'D', 'L']:
+                        matches.append({'result': char})
+            
+        except Exception as e:
+            logger.debug(f"Błąd parsowania formy: {e}")
+        
+        return matches[:6]  # Max 6 ostatnich meczów
+    
+    def _parse_results_table(self, table) -> List[Dict[str, Any]]:
+        """Parsuje tabelę z wynikami."""
+        matches = []
+        
+        try:
+            rows = table.find_all('tr')[1:]  # Pomiń header
+            
+            for row in rows[:6]:  # Max 6 meczów
+                # Szukaj wyniku meczu (score)
+                score_elem = row.find(['td', 'span'], class_=re.compile(r'.*(score|result).*', re.I))
+                
+                if score_elem:
+                    score_text = score_elem.get_text(strip=True)
+                    # Format: "2:1" lub "1-0"
+                    match_score = re.search(r'(\d+)[\s:-]+(\d+)', score_text)
+                    
+                    if match_score:
+                        home_goals = int(match_score.group(1))
+                        away_goals = int(match_score.group(2))
+                        
+                        # Określ wynik (W/D/L) z perspektywy tej drużyny
+                        # TODO: Musimy wiedzieć czy to mecz u siebie czy na wyjeździe
+                        if home_goals > away_goals:
+                            result = 'W'
+                        elif home_goals == away_goals:
+                            result = 'D'
+                        else:
+                            result = 'L'
+                        
+                        matches.append({'result': result, 'score': score_text})
+        
+        except Exception as e:
+            logger.debug(f"Błąd parsowania tabeli wyników: {e}")
+        
+        return matches
 
 
 # __init__.py marker

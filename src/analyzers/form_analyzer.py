@@ -17,18 +17,31 @@ class FormAnalyzer:
         
         Args:
             team: Nazwa drużyny
-            recent_matches: Lista ostatnich meczów
+            recent_matches: Lista ostatnich meczów (z forebet_scraper.fetch_team_form)
         
         Returns:
             Statystyki formy (punkty, W/D/L, trend)
         """
         if not recent_matches:
-            return {'has_form': False, 'points': 0, 'matches_analyzed': 0}
+            logger.debug(f"Brak danych formy dla {team}")
+            return {
+                'has_form': False, 
+                'points': 0, 
+                'matches_analyzed': 0,
+                'wins': 0,
+                'draws': 0,
+                'losses': 0,
+                'record': 'N/A',
+                'display': 'N/A (0 pkt)'
+            }
         
         points = 0
         wins = draws = losses = 0
         
-        for match in recent_matches[:Settings.MATCHES_TO_ANALYZE]:
+        # Analizuj maksymalnie MATCHES_TO_ANALYZE meczów
+        matches_to_check = recent_matches[:Settings.MATCHES_TO_ANALYZE]
+        
+        for match in matches_to_check:
             result = match.get('result', 'U')
             
             if result == 'W':
@@ -40,15 +53,21 @@ class FormAnalyzer:
             elif result == 'L':
                 losses += 1
         
+        matches_count = len(matches_to_check)
+        avg_points = round(points / matches_count, 2) if matches_count > 0 else 0
+        
+        logger.debug(f"Forma {team}: {wins}W-{draws}D-{losses}L = {points} pkt z {matches_count} meczów")
+        
         return {
             'has_form': True,
             'points': points,
             'wins': wins,
             'draws': draws,
             'losses': losses,
-            'matches_analyzed': len(recent_matches[:Settings.MATCHES_TO_ANALYZE]),
-            'avg_points': round(points / Settings.MATCHES_TO_ANALYZE, 2),
-            'record': f"{wins}W-{draws}D-{losses}L"
+            'matches_analyzed': matches_count,
+            'avg_points': avg_points,
+            'record': f"{wins}W-{draws}D-{losses}L",
+            'display': f"{wins}W-{draws}D-{losses}L ({points} pkt)"
         }
 
 

@@ -147,59 +147,70 @@ def analyze_and_qualify_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
     logger.info("🔍 Analiza i kwalifikacja zdarzeń...")
     logger.info(f"{'─' * 70}\n")
     
-    for i, event in enumerate(events, 1):
-        try:
-            home_team = event.get('home_team', '')
-            away_team = event.get('away_team', '')
-            match_url = event.get('match_url', '')
-            match_id = event.get('match_id', '')
-            
-            logger.info(f"[{i}/{len(events)}] Analiza: {home_team} vs {away_team}")
-            
-            # H2H Analysis
-            h2h = h2h_analyzer.analyze_h2h(home_team, away_team, match_url)
-            
-            # Form Analysis (placeholder - wymaga rzeczywistych danych)
-            home_form = form_analyzer.analyze_form(home_team, [])
-            away_form = form_analyzer.analyze_form(away_team, [])
-            
-            # Home/Away Analysis (placeholder)
-            home_home_record = home_away_analyzer.analyze_home_record(home_team, [])
-            away_away_record = home_away_analyzer.analyze_away_record(away_team, [])
-            
-            # Odds
-            odds = odds_aggregator.aggregate_odds(match_id, home_team, away_team)
-            
-            # Kompletna analiza
-            analysis = {
-                'h2h': h2h,
-                'home_form': home_form,
-                'away_form': away_form,
-                'home_home_record': home_home_record,
-                'away_away_record': away_away_record,
-                'odds': odds
-            }
-            
-            # Kwalifikacja
-            is_qualified, reason = event_filter.qualify_event(event, analysis)
-            
-            if is_qualified:
-                logger.info(f"   ✅ KWALIFIKOWANE: {reason}")
-                qualified.append({
-                    'event': event,
-                    'analysis': analysis,
-                    'qualification_reason': reason
-                })
-            else:
-                logger.debug(f"   ❌ Odrzucone: {reason}")
-            
-        except Exception as e:
-            logger.error(f"   ❌ Błąd analizy: {e}")
-            continue
+    # Utwórz scraper do pobierania szczegółów (forma)
+    scraper = ForebtScraper(use_selenium=True)
+    scraper._init_driver()
     
-    # Cleanup
-    h2h_analyzer.close()
-    odds_aggregator.close()
+    try:
+        for i, event in enumerate(events, 1):
+            try:
+                home_team = event.get('home_team', '')
+                away_team = event.get('away_team', '')
+                match_url = event.get('match_url', '')
+                match_id = event.get('match_id', '')
+                
+                logger.info(f"[{i}/{len(events)}] Analiza: {home_team} vs {away_team}")
+                
+                # H2H Analysis
+                h2h = h2h_analyzer.analyze_h2h(home_team, away_team, match_url)
+                
+                # Pobierz formę drużyn z detali meczu
+                logger.debug(f"   Pobieranie formy drużyn...")
+                team_form_data = scraper.fetch_team_form(match_url)
+                
+                home_form = form_analyzer.analyze_form(home_team, team_form_data.get('home_form', []))
+                away_form = form_analyzer.analyze_form(away_team, team_form_data.get('away_form', []))
+                
+                # Home/Away Analysis (używamy tej samej formy - uproszczenie)
+                # TODO: W przyszłości można dodać osobne pobieranie statystyk home/away
+                home_home_record = home_away_analyzer.analyze_home_record(home_team, team_form_data.get('home_form', []))
+                away_away_record = home_away_analyzer.analyze_away_record(away_team, team_form_data.get('away_form', []))
+                
+                # Odds
+                odds = odds_aggregator.aggregate_odds(match_id, home_team, away_team)
+                
+                # Kompletna analiza
+                analysis = {
+                    'h2h': h2h,
+                    'home_form': home_form,
+                    'away_form': away_form,
+                    'home_home_record': home_home_record,
+                    'away_away_record': away_away_record,
+                    'odds': odds
+                }
+                
+                # Kwalifikacja
+                is_qualified, reason = event_filter.qualify_event(event, analysis)
+                
+                if is_qualified:
+                    logger.info(f"   ✅ KWALIFIKOWANE: {reason}")
+                    qualified.append({
+                        'event': event,
+                        'analysis': analysis,
+                        'qualification_reason': reason
+                    })
+                else:
+                    logger.debug(f"   ❌ Odrzucone: {reason}")
+                
+            except Exception as e:
+                logger.error(f"   ❌ Błąd analizy: {e}")
+                continue
+    
+    finally:
+        # Cleanup
+        scraper.close()
+        h2h_analyzer.close()
+        odds_aggregator.close()
     
     return qualified
 
