@@ -72,17 +72,17 @@ class Settings:
         Sport.HANDBALL,
     ]
     
-    # URL patterns dla sportów (polskie URL Forebet.com)
+    # URL patterns dla sportów (używamy angielskich URL - działają lepiej)
     SPORT_URL_PATTERNS = {
-        Sport.FOOTBALL: "prognozy-piłkarskie-na-dziś",
-        Sport.BASKETBALL: "basketball/prognozy-na-dzis",  # TODO: sprawdzić poprawny URL
-        Sport.VOLLEYBALL: "volleyball/prognozy-na-dzis",  # TODO: sprawdzić poprawny URL
-        Sport.HOCKEY: "hockey/prognozy-na-dzis",          # TODO: sprawdzić poprawny URL
-        Sport.HANDBALL: "handball/prognozy-na-dzis",      # TODO: sprawdzić poprawny URL
-        Sport.AMERICAN_FOOTBALL: "american-football/prognozy-na-dzis",
-        Sport.BASEBALL: "baseball/prognozy-na-dzis",
-        Sport.RUGBY: "rugby/prognozy-na-dzis",
-        Sport.CRICKET: "cricket/prognozy-na-dzis",
+        Sport.FOOTBALL: "prognozy-piłkarskie-na-dziś",  # Polski URL dla football
+        Sport.BASKETBALL: "en/basketball/predictions-today",
+        Sport.VOLLEYBALL: "en/volleyball/predictions-today",
+        Sport.HOCKEY: "en/hockey/predictions-today",
+        Sport.HANDBALL: "en/handball/predictions-today",
+        Sport.AMERICAN_FOOTBALL: "en/american-football/all-predictions",
+        Sport.BASEBALL: "en/baseball/predictions-today",
+        Sport.RUGBY: "en/rugby/predictions-today",
+        Sport.CRICKET: "en/cricket/predictions-today",
     }
     
     @classmethod
