@@ -180,10 +180,62 @@ def demo_full_workflow():
         logger.info(f"   Analiza: {event['home_team']} vs {event['away_team']}")
         
         # Sprawdź czy spełnia kryteria
-        # EventFilter używa metody statycznej qualify_event(event, analysis)
-        # W demo nie mamy pełnej analizy, więc używamy uproszczonego sprawdzenia
         if event['prediction']['max'] >= Settings.NOTIFICATION_THRESHOLD:
-            qualified_events.append(event)
+            # Konwertuj stare demo dane do nowego formatu z 'event' i 'analysis'
+            qualified_event = {
+                'event': {
+                    'match_id': event['match_id'],
+                    'sport': event['sport'],
+                    'home_team': event['home_team'],
+                    'away_team': event['away_team'],
+                    'match_time': event['match_time'],
+                    'probabilities': event['prediction'],
+                    'league': 'Demo League',
+                    'match_url': 'https://www.forebet.com'
+                },
+                'analysis': {
+                    'home_form': {
+                        'has_form': True,
+                        'display': f"{event['form']['home']['last_6_overall'][:3].count('W')}W-{event['form']['home']['last_6_overall'][:3].count('D')}D-{event['form']['home']['last_6_overall'][:3].count('L')}L ({event['form']['home']['points_overall']} pkt)",
+                        'record': event['form']['home']['last_6_overall'],
+                        'points': event['form']['home']['points_overall']
+                    },
+                    'away_form': {
+                        'has_form': True,
+                        'display': f"{event['form']['away']['last_6_overall'][:3].count('W')}W-{event['form']['away']['last_6_overall'][:3].count('D')}D-{event['form']['away']['last_6_overall'][:3].count('L')}L ({event['form']['away']['points_overall']} pkt)",
+                        'record': event['form']['away']['last_6_overall'],
+                        'points': event['form']['away']['points_overall']
+                    },
+                    'home_home_record': {
+                        'has_record': True,
+                        'display': f"{event['form']['home']['last_6_home'][:3].count('W')}W-{event['form']['home']['last_6_home'][:3].count('D')}D-{event['form']['home']['last_6_home'][:3].count('L')}L ({event['form']['home']['points_home']} pkt)",
+                        'record': event['form']['home']['last_6_home'],
+                        'points': event['form']['home']['points_home']
+                    },
+                    'away_away_record': {
+                        'has_record': True,
+                        'display': f"{event['form']['away']['last_6_away'][:3].count('W')}W-{event['form']['away']['last_6_away'][:3].count('D')}D-{event['form']['away']['last_6_away'][:3].count('L')}L ({event['form']['away']['points_away']} pkt)",
+                        'record': event['form']['away']['last_6_away'],
+                        'points': event['form']['away']['points_away']
+                    },
+                    'h2h': {
+                        'has_history': True,
+                        'home_win_rate': event['head_to_head']['home_win_rate'] / 100,
+                        'total_matches': event['head_to_head']['total_matches'],
+                        'home_wins': event['head_to_head']['home_wins'],
+                        'draws': event['head_to_head']['draws'],
+                        'away_wins': event['head_to_head']['away_wins']
+                    },
+                    'odds': {
+                        'has_odds': True,
+                        'home_win': event['odds']['home_win'],
+                        'away_win': event['odds']['away_win'],
+                        'draw': event['odds'].get('draw')
+                    }
+                },
+                'qualification_reason': ' | '.join(event['qualifying_reasons'])
+            }
+            qualified_events.append(qualified_event)
             logger.info(f"      ✅ KWALIFIKUJE SIĘ (max prob: {event['prediction']['max']}%)")
         else:
             logger.info(f"      ❌ Odrzucone (max prob: {event['prediction']['max']}%)")
@@ -195,15 +247,18 @@ def demo_full_workflow():
     # 3. Szczegóły zakwalifikowanych zdarzeń
     if qualified_events:
         logger.info("📋 Krok 3: Szczegóły zakwalifikowanych zdarzeń")
-        for i, event in enumerate(qualified_events, 1):
+        for i, qualified_event in enumerate(qualified_events, 1):
+            event = qualified_event['event']
+            analysis = qualified_event['analysis']
             logger.info(f"\n   [{i}] {event['sport'].upper()}: {event['home_team']} vs {event['away_team']}")
             logger.info(f"       Czas: {event['match_time']}")
-            logger.info(f"       Przewidywanie: {event['prediction']['prediction']} ({event['prediction']['max']}%)")
-            logger.info(f"       H2H: {event['head_to_head']['home_win_rate']}% wygranych gospodarzy")
-            logger.info(f"       Kursy: Gospod. {event['odds']['home_win']} | Remis {event['odds'].get('draw', '-')} | Goście {event['odds']['away_win']}")
-            logger.info("       Powody kwalifikacji:")
-            for reason in event['qualifying_reasons']:
-                logger.info(f"         {reason}")
+            logger.info(f"       Przewidywanie: {event['probabilities']['prediction']} ({event['probabilities']['max']}%)")
+            logger.info(f"       H2H: {analysis['h2h']['home_win_rate'] * 100:.1f}% wygranych gospodarzy")
+            logger.info(f"       Forma gospodarzy: {analysis['home_form']['display']}")
+            logger.info(f"       Forma gości: {analysis['away_form']['display']}")
+            if analysis['odds'].get('has_odds'):
+                draw_text = analysis['odds'].get('draw', '-')
+                logger.info(f"       Kursy: Gospod. {analysis['odds']['home_win']} | Remis {draw_text} | Goście {analysis['odds']['away_win']}")
         
         logger.info("")
         
