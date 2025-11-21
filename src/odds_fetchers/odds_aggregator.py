@@ -14,23 +14,34 @@ class OddsAggregator:
     def __init__(self):
         self.flashscore = FlashscoreFetcher()
     
-    def aggregate_odds(self, match_id: str, home_team: str, away_team: str) -> List[Dict[str, Any]]:
+    def aggregate_odds(self, match_id: str, home_team: str, away_team: str, sport: str = 'football') -> Dict[str, Any]:
         """
-        Pobiera i agreguje kursy z dostępnych źródeł.
+        Pobiera kursy Nordic Bet z Flashscore API.
+        
+        Args:
+            match_id: ID meczu
+            home_team: Drużyna gospodarzy
+            away_team: Drużyna gości
+            sport: Sport (football, basketball, etc.)
         
         Returns:
-            Lista słowników z kursami z różnych źródeł
+            Słownik z kursami Nordic Bet
         """
-        all_odds = []
+        # Pobierz z Flashscore (Nordic Bet)
+        flashscore_odds = self.flashscore.fetch_odds(match_id, home_team, away_team, sport)
         
-        # Pobierz z Flashscore
-        flashscore_odds = self.flashscore.fetch_odds(match_id, home_team, away_team)
-        if flashscore_odds:
-            all_odds.append(flashscore_odds)
+        if flashscore_odds and flashscore_odds.get('has_odds'):
+            return flashscore_odds
         
-        # TODO: Dodać inne źródła (LiveSport, itp.)
-        
-        return all_odds
+        # Zwróć puste kursy jeśli nie znaleziono
+        return {
+            'source': 'flashscore_nordicbet',
+            'bookmaker': 'Nordic Bet',
+            'has_odds': False,
+            'home_win': None,
+            'draw': None,
+            'away_win': None
+        }
     
     def close(self):
         self.flashscore.close()

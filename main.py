@@ -158,6 +158,7 @@ def analyze_and_qualify_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
                 away_team = event.get('away_team', '')
                 match_url = event.get('match_url', '')
                 match_id = event.get('match_id', '')
+                sport = event.get('sport', 'football')
                 
                 logger.info(f"[{i}/{len(events)}] Analiza: {home_team} vs {away_team}")
                 
@@ -176,8 +177,8 @@ def analyze_and_qualify_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
                 home_home_record = home_away_analyzer.analyze_home_record(home_team, team_form_data.get('home_form', []))
                 away_away_record = home_away_analyzer.analyze_away_record(away_team, team_form_data.get('away_form', []))
                 
-                # Odds
-                odds = odds_aggregator.aggregate_odds(match_id, home_team, away_team)
+                # Odds z Nordic Bet (Flashscore API)
+                odds = odds_aggregator.aggregate_odds(match_id, home_team, away_team, sport)
                 
                 # Kompletna analiza
                 analysis = {
